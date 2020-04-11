@@ -150,7 +150,7 @@ function updateGeometry(text,child,lx,ly,rx,ry){
         child.children[1].position.y = radius + 0.5;
     }
     child.children[1].material.color = color;
-    console.log(child.children[1]);
+    // console.log(child.children[1]);
 }
 
 function updatePipe(child,parent,sideLength,height,direction,parentPipeIndex){
@@ -280,8 +280,10 @@ let sphere;
 let pipe,line,parent;
 const addSlowBtn = document.getElementById("add-slow");
 const addFastBtn = document.getElementById("add-fast");
-const addAll = document.getElementById("add-all");
-function buildSlow(i,j,N,M,timeDelay){
+const addAllBtn = document.getElementById("add-all");
+const backBtn = document.getElementById("back");
+const buildBtn = document.getElementById("build");
+function addSlow(i,j,N,M,timeDelay){
             if (i < N) {
                 if (j < M) {
                     let updateHandler;
@@ -299,7 +301,7 @@ function buildSlow(i,j,N,M,timeDelay){
             }
 }
 
-async function buildFast(i,j,N,M){
+async function addFast(i,j,N,M){
     if(i < N){
         if(j < M){
             await update(ROOT,A[i][j],j+1,i+1);
@@ -307,9 +309,10 @@ async function buildFast(i,j,N,M){
     }
 }
 let i = 0 , j = 0;
+let leafs = [];
 addSlowBtn.addEventListener("click", async() => {
     if(i < N) {
-        buildSlow(i, j, N, M, 3000);
+        addSlow(i, j, N, M, 3000);
         j++;
         if (j === M) {
             i++;
@@ -319,7 +322,7 @@ addSlowBtn.addEventListener("click", async() => {
 });
 addFastBtn.addEventListener("click", async() => {
     if(i < N) {
-        await buildFast(i, j, N, M);
+        await addFast(i, j, N, M);
         j++;
         if (j === M) {
             i++;
@@ -327,15 +330,33 @@ addFastBtn.addEventListener("click", async() => {
         }
     }
 });
-addAll.addEventListener("click",async () => {
+addAllBtn.addEventListener("click",async () => {
     for(let i = 0; i < N; i++){
         for(let j = 0; j < M; j++){
             await update(ROOT, A[i][j], j + 1, i + 1);
         }
     }
 });
-
-
+backBtn.addEventListener("click",async() =>{
+    console.log(leafs);
+    if(leafs.length !== 0){
+        j--;
+        if(j<0){
+            j+=M;
+            i--;
+        }
+        undo(ROOT,A[i][j],j+1,i+1);
+    }
+});
+buildBtn.addEventListener("click",async () => {
+    for(let i = 0; i < N; i++){
+        for(let j = 0; j < M; j++){
+            build(ROOT, A[i][j], j + 1, i + 1);
+        }
+    }
+    await drawTree(ROOT);
+    console.log(ROOT);
+});
 animate();
 
 
@@ -370,13 +391,22 @@ const A = [
 ];
 let totalHeight = Math.ceil(Math.log(N * M) / Math.log(2)) + 1 ;
 let ROOT = new Node();
-
+// get proportions for the 2D segment tree
+const _get_side_length = height => Math.pow(2.1,totalHeight - height + 1) / 50;
+const _get_height = height => height;
+const _get_direction = (child,parent) => {
+    let direction;
+    if(child === parent.leftUp) direction = "leftUp";
+    else if(child === parent.leftDown) direction = "leftDown";
+    else if(child === parent.rightUp) direction = "rightUp";
+    else direction = "rightDown";
+    return direction;
+};
+// 2D segment tree update function
 async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, ly = 1,ry = N,height = 0){
-    const _get_side_length = height => Math.pow(2.1,totalHeight - height + 1) / 50;
-    const _get_height = height => height;
     const _side_length = _get_side_length(height) ;
     const _height = _get_height(height);
-
+    // console.log(currentNode);
     if (currentNode.isEmpty === true) {
         currentNode.isEmpty = false;
         currentNode.data = value;
@@ -387,11 +417,7 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
         if(currentNode.parent !== null){
             // console.log("hey there",currentNode.parent);
             // console.log(currentNode);
-            let direction = "";
-            if(currentNode === currentNode.parent.leftUp) direction = "leftUp";
-            else if(currentNode === currentNode.parent.leftDown) direction = "leftDown";
-            else if(currentNode === currentNode.parent.rightUp) direction = "rightUp";
-            else direction = "rightDown";
+            let direction = _get_direction(currentNode,currentNode.parent);
             await moveNode(currentNode.nodeObject,currentNode.parent.nodeObject, _side_length , _height, direction,0.05);
             currentNode.parentPipeIndex = parentNodeObject.children.length - 1;
             // console.log(_side_length,_height);
@@ -400,11 +426,7 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
     else {
         currentNode.data += value;
         if(currentNode.parent !== null) {
-            let direction;
-            if (currentNode === currentNode.parent.leftUp) direction = "leftUp";
-            else if (currentNode === currentNode.parent.leftDown) direction = "leftDown";
-            else if (currentNode === currentNode.parent.rightUp) direction = "rightUp";
-            else direction = "rightDown";
+            let direction = _get_direction(currentNode,currentNode.parent);
             updateNode((currentNode.data).toString(), currentNode.nodeObject, currentNode.parent.nodeObject, _side_length,_height, direction,currentNode.parentPipeIndex,lx,ly,rx,ry);
             // console.log(currentNode.nodeObject);
             // return;
@@ -428,7 +450,10 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
     const midX = Math.floor((lx + rx) / 2);
     const midY = Math.floor((ly + ry) / 2);
 
-    if(lx === rx && ly === ry) return 0;
+    if(lx === rx && ly === ry) {
+        leafs.push(currentNode);
+        return 0;
+    }
     // console.log(Math.pow(2.5,totalHeight - height));
     if(x <= midX){
         if(y <= midY) {
@@ -473,7 +498,184 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
     }
 }
 
+function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0){
+    const _side_length = _get_side_length(height) ;
+    const _height = _get_height(height);
+    // console.log(currentNode,x,y);
+    if(lx === rx && ly === ry) {
+        leafs.pop();
+        if(currentNode.parent === null){
+            scene.remove(currentNode.nodeObject);
+            ROOT = new Node();
+        }
+        else {
+            if (currentNode === currentNode.parent.leftUp)
+                currentNode.parent.leftUp = null;
+            else if (currentNode === currentNode.parent.leftDown)
+                currentNode.parent.leftDown = null;
+            else if (currentNode === currentNode.parent.rightUp)
+                currentNode.parent.rightUp = null;
+            else if (currentNode === currentNode.parent.rightDown)
+                currentNode.parent.rightDown = null;
+            currentNode.parent.nodeObject.remove(currentNode.parent.nodeObject.children[currentNode.parentPipeIndex]);
+            currentNode.parent.nodeObject.remove(currentNode.nodeObject);
+        }
+        return;
+    }
+    const midX = Math.floor((lx + rx) / 2);
+    const midY = Math.floor((ly + ry) / 2);
+    if(x <= midX){
+        if(y <= midY) {
+            undo(currentNode.leftUp, value, x, y, lx, midX, ly, midY,height +1);
+        }
+        else{
+            undo(currentNode.leftDown, value, x, y, lx, midX, midY + 1, ry,height +1);
+        }
+    }
+    else{
+        if(y <= midY){
+            undo(currentNode.rightUp, value, x, y, midX + 1, rx, ly, midY,height +1);
+        }
+        else {
+            undo(currentNode.rightDown, value, x, y, midX + 1, rx, midY + 1, ry,height +1);
+        }
+    }
+    currentNode.data-=value;
+    if(currentNode.parent !== null) {
+        let direction = _get_direction(currentNode,currentNode.parent);
+        updateNode((currentNode.data).toString(), currentNode.nodeObject, currentNode.parent.nodeObject, _side_length,_height, direction,currentNode.parentPipeIndex,lx,ly,rx,ry);
+    }
+    else {
+        updateGeometry((currentNode.data).toString(),currentNode.nodeObject,lx,ly,rx,ry);
+    }
 
+    if(currentNode.leftUp !== null)
+        updatePipe(currentNode.leftUp.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"leftUp",currentNode.leftUp.parentPipeIndex);
+    if(currentNode.leftDown !== null)
+        updatePipe(currentNode.leftDown.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"leftDown",currentNode.leftDown.parentPipeIndex);
+    if(currentNode.rightUp !== null)
+        updatePipe(currentNode.rightUp.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"rightUp",currentNode.rightUp.parentPipeIndex);
+    if(currentNode.rightDown !== null)
+        updatePipe(currentNode.rightDown.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"rightDown",currentNode.rightDown.parentPipeIndex);
+
+    if (currentNode.leftUp === null && currentNode.leftDown === null && currentNode.rightUp === null && currentNode.rightDown === null){
+        if(currentNode.parent === null){
+            console.log("ehhh");
+            scene.remove(currentNode.nodeObject);
+            ROOT = new Node();
+        }
+        else {
+            if (currentNode === currentNode.parent.leftUp)
+                currentNode.parent.leftUp = null;
+            else if (currentNode === currentNode.parent.leftDown)
+                currentNode.parent.leftDown = null;
+            else if (currentNode === currentNode.parent.rightUp)
+                currentNode.parent.rightUp = null;
+            else if (currentNode === currentNode.parent.rightDown)
+                currentNode.parent.rightDown = null;
+            currentNode.parent.nodeObject.remove(currentNode.parent.nodeObject.children[currentNode.parentPipeIndex]);
+            currentNode.parent.nodeObject.remove(currentNode.nodeObject);
+        }
+    }
+}
+//build whole tree without animation
+function build(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N){
+    if (currentNode.isEmpty === true)
+        currentNode.isEmpty = false;
+    currentNode.data += value;
+    if(lx === rx && ly === ry)return;
+    const midX = Math.floor((lx + rx) / 2);
+    const midY = Math.floor((ly + ry) / 2);
+    if(x <= midX){
+        if(y <= midY) {
+            if (currentNode.leftUp === null) currentNode.leftUp = new Node(currentNode);
+            build(currentNode.leftUp, value, x, y, lx, midX, ly, midY);
+        }
+        else{
+            if(currentNode.leftDown === null) currentNode.leftDown = new Node(currentNode);
+            build(currentNode.leftDown, value, x, y, lx, midX, midY + 1, ry);
+        }
+    }
+    else{
+        if(y <= midY){
+            if(currentNode.rightUp === null) currentNode.rightUp = new Node(currentNode);
+            build(currentNode.rightUp, value, x, y, midX + 1, rx, ly, midY);
+        }
+        else{
+            if(currentNode.rightDown === null) currentNode.rightDown = new Node(currentNode);
+            build(currentNode.rightDown, value, x, y, midX + 1, rx, midY + 1, ry);
+        }
+
+    }
+}
+// Draw tree
+async function drawTree(currentNode,lx = 1, rx = M, ly = 1,ry = N,height = 0){
+    const _side_length = _get_side_length(height);
+    const _height = _get_height(height);
+    if(currentNode.parent === null){
+        currentNode.nodeObject = await createNode((currentNode.data).toString(),scene,0,0,0, lx, ly, rx, ry);
+    }
+    else{
+        if (currentNode === currentNode.parent.leftUp)currentNode.nodeObject = await createNode((currentNode.data).toString(), currentNode.parent.nodeObject, -_side_length, -_height, -_side_length, lx, ly, rx, ry);
+        else if (currentNode === currentNode.parent.leftDown)currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,-_side_length,-_height,_side_length,lx,ly,rx,ry);
+        else if (currentNode === currentNode.parent.rightUp)currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,_side_length,-_height,-_side_length,lx,ly,rx,ry);
+        else if (currentNode === currentNode.parent.rightDown)currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,_side_length,-_height,_side_length,lx,ly,rx,ry);
+        let parentRadius = currentNode.parent.nodeObject.geometry.parameters.radius;
+        let childRadius = currentNode.nodeObject.geometry.parameters.radius;
+
+        let totalDistance =  Math.sqrt((2 * _side_length * _side_length) + (_height * _height));
+        let distance = totalDistance - childRadius - parentRadius;
+
+        let childRadiusX = _side_length - (  (_side_length * childRadius) / totalDistance );
+        let childRadiusY = _height - ( (_height * childRadius) / totalDistance );
+        let childRadiusZ = _side_length - (  (_side_length * childRadius) / totalDistance );
+
+        let parentRadiusX = (_side_length * parentRadius) / (totalDistance);
+        let parentRadiusY = (_height * parentRadius) / ( totalDistance );
+        let parentRadiusZ = (_side_length * parentRadius) / (totalDistance);
+
+        if (currentNode === currentNode.parent.leftUp) {
+            let pipe = makePipe(currentNode.parent.nodeObject,distance,-((childRadiusX+parentRadiusX)/2),-((childRadiusY+parentRadiusY)/2),-((childRadiusZ+parentRadiusZ)/2));
+            pipe.rotation.x = 0;
+            pipe.rotation.y = 3 * Math.PI / 4;
+            pipe.rotation.z = Math.PI/2 - Math.atan(_height / (_side_length * Math.sqrt(2)));
+        }
+        else if (currentNode === currentNode.parent.leftDown){
+            let pipe = makePipe(currentNode.parent.nodeObject,distance,-((childRadiusX+parentRadiusX)/2),-((childRadiusY+parentRadiusY)/2),(childRadiusZ+parentRadiusZ)/2);
+            pipe.rotation.x = 0;
+            pipe.rotation.y = - 3 * Math.PI / 4 ;
+            pipe.rotation.z = Math.PI/2 - Math.atan(_height / (_side_length * Math.sqrt(2)));
+        }
+        else if (currentNode === currentNode.parent.rightUp){
+            let pipe = makePipe(currentNode.parent.nodeObject,distance,(childRadiusX+parentRadiusX)/2,-((childRadiusY+parentRadiusY)/2),-((childRadiusZ+parentRadiusZ)/2));
+            pipe.rotation.x = 0;
+            pipe.rotation.y = Math.PI / 4;
+            pipe.rotation.z = Math.PI/2 - Math.atan(_height / (_side_length * Math.sqrt(2)));
+        }
+        else if (currentNode === currentNode.parent.rightDown){
+            let pipe = makePipe(currentNode.parent.nodeObject,distance,(childRadiusX+parentRadiusX)/2,-((childRadiusY+parentRadiusY)/2),(childRadiusZ+parentRadiusZ)/2);
+            pipe.rotation.x = 0;
+            pipe.rotation.y = - Math.PI / 4;
+            pipe.rotation.z = Math.PI/2 - Math.atan(_height / (_side_length * Math.sqrt(2)));
+        }
+        currentNode.parentPipeIndex = currentNode.parent.nodeObject.children.length - 1;
+    }
+    const midX = Math.floor((lx + rx) / 2);
+    const midY = Math.floor((ly + ry) / 2);
+    if(currentNode.leftUp !== null){
+        await drawTree(currentNode.leftUp,lx,midX,ly,midY,height+1);
+    }
+    if(currentNode.leftDown !== null){
+        await drawTree(currentNode.leftDown,lx,midX,midY + 1,ry,height+1);
+    }
+    if(currentNode.rightUp !== null){
+        await drawTree(currentNode.rightUp, midX + 1, rx, ly, midY,height +1);
+
+    }
+    if(currentNode.rightDown !== null) {
+        await drawTree(currentNode.rightDown, midX + 1, rx, midY + 1, ry, height + 1);
+    }
+}
 // load font asynchronously
 textLoaderPromise().then( async (font) => {
     textFont = font;
