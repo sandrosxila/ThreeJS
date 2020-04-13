@@ -1,11 +1,7 @@
-import * as THREE from 'https://threejsfundamentals.org/threejs/resources/threejs/r114/build/three.module.js';
-import {OrbitControls} from 'https://unpkg.com/three@0.108.0/examples/jsm/controls/OrbitControls.js';
-// import * as THREEx from 'http://jeromeetienne.github.io/threex.dynamictexture/threex.dynamictexture.js';
-// import * as THREE from "./js/three.js"
-// import {OrbitControls} from "./js/OrbitControls";
+const {OrbitControls,Interaction} = THREE;
 
 // initial setup
-
+console.log(Interaction);
 // set scene
 let scene = new THREE.Scene();
 // make scene background color white
@@ -41,6 +37,8 @@ addLight(1, -1, -2);
 let controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, 0);
 controls.update();
+// set Interaction Manager
+const interactionManager = new THREE.InteractionManager(renderer, scene, camera);
 //set up animation function
 function animate() {
     requestAnimationFrame(animate);
@@ -75,7 +73,7 @@ function makePipe(parent,height,positionX = 0,positionY = 0,positionZ = 0,radius
 // declare the function that creates sphere
 function makeSphere(color, parent, positionX, positionY, positionZ = 0, radius = 1, widthSegments = 32, heightSegments = 32) {
     const geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
-    const material = new THREE.MeshPhongMaterial({color: color, opacity: 0.2, transparent: true});
+    const material = new THREE.MeshPhongMaterial({color: color, opacity: 0.2, transparent: true, side: THREE.BackSide});
     const sphere = new THREE.Mesh(geometry, material);
 
     parent.add(sphere);
@@ -218,6 +216,26 @@ async function animateNode(node,finalX,finalY,finalZ,rate = 0.1){
     if(node.position.x !== finalX || node.position.y!== finalY || node.position.z!==finalZ)
         requestAnimationFrame(animateNode.bind(this,node,finalX,finalY,finalZ,rate));
 }
+async function blinkNode(node,duration,startTime = new Date().getTime()){
+    console.log(node);
+    if (node.material.color.getHex() === 0x157d6c ){
+
+        node.material.color.setHSL(0,1,0.5);
+        node.material.opacity = 0.7;
+    }
+    else {
+        let {h,s,l} = node.material.color.getHSL();
+        node.material.color.setHSL(h,s,Math.max((l+0.01)%1,0.3));
+        node.material.opacity = 0.5;
+    }
+    let currentTime = new Date().getTime();
+    if(currentTime - startTime < duration)
+        requestAnimationFrame(blinkNode.bind(this,node,duration,startTime));
+    else{
+        node.material.color.setHex(0x157d6c);
+        node.material.opacity = 0.2;
+    }
+}
 // Left-Up
 async function moveLeftUp(child,sideLength,height,parent,distance,childRadiusX,childRadiusY,childRadiusZ,parentRadiusX,parentRadiusY,parentRadiusZ,rate){
     await animateNode(child,-sideLength,-height,-sideLength, rate);
@@ -328,13 +346,15 @@ addFastBtn.addEventListener("click", async() => {
             i++;
             j = 0;
         }
+        console.log(ROOT.nodeObject);
     }
 });
 addAllBtn.addEventListener("click",async () => {
-    for(let i = 0; i < N; i++){
-        for(let j = 0; j < M; j++){
+    for(; i < N; i++){
+        for(; j < M; j++){
             await update(ROOT, A[i][j], j + 1, i + 1);
         }
+        j=0;
     }
 });
 backBtn.addEventListener("click",async() =>{
@@ -349,16 +369,21 @@ backBtn.addEventListener("click",async() =>{
     }
 });
 buildBtn.addEventListener("click",async () => {
+    // console.log(ROOT);
+    if(ROOT.isEmpty===false){
+        scene.remove(ROOT.nodeObject);
+        ROOT = new Node();
+        i=0;
+        j=0;
+    }
     for(let i = 0; i < N; i++){
         for(let j = 0; j < M; j++){
             build(ROOT, A[i][j], j + 1, i + 1);
         }
     }
     await drawTree(ROOT);
-    console.log(ROOT);
-});
-animate();
 
+});
 
 // algorithm implementation
 // node class
@@ -389,11 +414,82 @@ const A = [
     [3,3,5,12,3,8,1,3,3,5,4,3],
     [5,5,6,2,3,7,2,3,2,6,2,1]
 ];
+//2 - 2.1
+//3 - 2.25
+//4 - 2.4
+//5 - 2.5
+//6 - 2.6
+//7 - 2.7
+//8 - 2.8
+//9 - 2.9
+//10 - 3
 let totalHeight = Math.ceil(Math.log(N * M) / Math.log(2)) + 1 ;
 let ROOT = new Node();
+let SKETCH = new Node();
+let maxLength = 0;
+for(let i = 0; i < N; i++){
+    for(let j = 0; j < M; j++){
+        build(SKETCH, A[i][j], j + 1, i + 1);
+        maxLength = Math.max(maxLength,(A[i][j]).toString().length);
+    }
+}
+const pipeModes = ['Proportional','Relative','Average'];
+const nodeModes = ['Flexible','Fixed'];
+const Mode = {
+    pipe : pipeModes[0],
+    node : nodeModes[0]
+}
+const pipeRadios =  document.pipeMode.pipeRadio;
+let prev = null;
+for (let i = 0; i < pipeRadios.length; i++) {
+    pipeRadios[i].addEventListener('change', function() {
+        if (this !== prev) {
+            prev = this;
+            Mode.pipe = pipeModes[i];
+            if(ROOT.isEmpty===false){
+                scene.remove(ROOT.nodeObject);
+                ROOT = new Node();
+                i=0;
+                j=0;
+            }
+        }
+    });
+    if(pipeRadios[i].checked){
+        Mode.pipe = pipeModes[i];
+    }
+}
+
 // get proportions for the 2D segment tree
-const _get_side_length = height => Math.pow(2.1,totalHeight - height + 1) / 50;
-const _get_height = height => height;
+const _calculate_side_length = (numberLength,height) => {
+    let number;
+    if(numberLength <= 2) number = 2.1;
+    else if(numberLength === 3) number = 2.25;
+    else number = 2 + (numberLength/10);
+    return Math.pow(number,totalHeight - height + 1) / 50;
+}
+const _get_side_length = (node,height) => {
+    if (Mode.pipe === 'Proportional'){
+        return _calculate_side_length(maxLength,height);
+    }
+    else if (Mode.pipe === 'Relative'){
+        return _calculate_side_length((node.data).toString().length,height);
+    }
+    else if(Mode.pipe === 'Average') {
+        return node.parent === null ? 0 : optimizeAverageSideLength(node.parent, height);
+    }
+}
+const _calculate_height = (numberLength,height) => height + numberLength/5;
+const _get_height = (node,height) => {
+    if (Mode.pipe === 'Proportional'){
+        return height;
+    }
+    else if (Mode.pipe === 'Relative'){
+        return height;
+    }
+    else if(Mode.pipe === 'Average') {
+        return node.parent === null ? 0 : optimizeAverageHeight(node.parent, height);
+    }
+}
 const _get_direction = (child,parent) => {
     let direction;
     if(child === parent.leftUp) direction = "leftUp";
@@ -402,14 +498,58 @@ const _get_direction = (child,parent) => {
     else direction = "rightDown";
     return direction;
 };
+function optimizeAverageSideLength(node,height){
+    let sum = 0;
+    let quantity = 0;
+    if(node.leftUp !== null){
+        sum+=_calculate_side_length((node.leftUp.data).toString().length,height);
+        quantity++;
+    }
+    if(node.leftDown !== null){
+        sum+=_calculate_side_length((node.leftDown.data).toString().length,height);
+        quantity++;
+    }
+    if(node.rightUp !== null){
+        sum+=_calculate_side_length((node.rightUp.data).toString().length,height);
+        quantity++;
+    }
+    if(node.rightDown !== null){
+        sum+=_calculate_side_length((node.rightDown.data).toString().length,height);
+        quantity++;
+    }
+    return quantity === 0 ? 0 : sum / quantity;
+}
+function optimizeAverageHeight(node,height){
+    let sum = 0;
+    let quantity = 0;
+    if(node.leftUp !== null){
+        sum+=_calculate_height((node.leftUp.data).toString().length,height);
+        quantity++;
+    }
+    if(node.leftDown !== null){
+        sum+=_calculate_height((node.leftDown.data).toString().length,height);
+        quantity++;
+    }
+    if(node.rightUp !== null){
+        sum+=_calculate_height((node.rightUp.data).toString().length,height);
+        quantity++;
+    }
+    if(node.rightDown !== null){
+        sum+=_calculate_height((node.rightDown.data).toString().length,height);
+        quantity++;
+    }
+    return quantity === 0 ? 0 : sum / quantity;
+}
 // 2D segment tree update function
-async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, ly = 1,ry = N,height = 0){
-    const _side_length = _get_side_length(height) ;
-    const _height = _get_height(height);
+async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, ly = 1,ry = N,height = 0,sketchNode = SKETCH){
     // console.log(currentNode);
     if (currentNode.isEmpty === true) {
         currentNode.isEmpty = false;
         currentNode.data = value;
+        const _side_length = _get_side_length(sketchNode,height) ;
+        const _height = _get_height(sketchNode,height);
+        // console.log(_side_length,_height);
+
         let parentNodeObject = currentNode.parent === null ? scene : currentNode.parent.nodeObject;
         let newNodeObject = await createNode((value).toString(),parentNodeObject,0,0,0, lx, ly, rx, ry);
         currentNode.nodeObject = newNodeObject;
@@ -425,6 +565,9 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
     }
     else {
         currentNode.data += value;
+        const _side_length = _get_side_length(sketchNode,height) ;
+        const _height = _get_height(sketchNode,height);
+        console.log(_side_length,_height);
         if(currentNode.parent !== null) {
             let direction = _get_direction(currentNode,currentNode.parent);
             updateNode((currentNode.data).toString(), currentNode.nodeObject, currentNode.parent.nodeObject, _side_length,_height, direction,currentNode.parentPipeIndex,lx,ly,rx,ry);
@@ -437,13 +580,13 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
             // updateNode((currentNode.data).toString(), currentNode.nodeObject, null, _side_length,_height, direction,0);
         }
         if(currentNode.leftUp !== null)
-            updatePipe(currentNode.leftUp.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"leftUp",currentNode.leftUp.parentPipeIndex);
+            updatePipe(currentNode.leftUp.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.leftUp,height + 1),_get_height(sketchNode.leftUp,height + 1),"leftUp",currentNode.leftUp.parentPipeIndex);
         if(currentNode.leftDown !== null)
-            updatePipe(currentNode.leftDown.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"leftDown",currentNode.leftDown.parentPipeIndex);
+            updatePipe(currentNode.leftDown.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.leftDown,height + 1),_get_height(sketchNode.leftDown,height + 1),"leftDown",currentNode.leftDown.parentPipeIndex);
         if(currentNode.rightUp !== null)
-            updatePipe(currentNode.rightUp.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"rightUp",currentNode.rightUp.parentPipeIndex);
+            updatePipe(currentNode.rightUp.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.rightUp,height + 1),_get_height(sketchNode.rightUp,height + 1),"rightUp",currentNode.rightUp.parentPipeIndex);
         if(currentNode.rightDown !== null)
-            updatePipe(currentNode.rightDown.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"rightDown",currentNode.rightDown.parentPipeIndex);
+            updatePipe(currentNode.rightDown.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.rightDown,height + 1),_get_height(sketchNode.rightDown,height + 1),"rightDown",currentNode.rightDown.parentPipeIndex);
 
     }
 
@@ -459,19 +602,21 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
         if(y <= midY) {
             if(currentNode.leftUp === null) currentNode.leftUp = new Node(currentNode);
             if(slow) {
-                return update.bind(this, currentNode.leftUp, value, x, y, slow, lx, midX, ly, midY, height + 1);
+                await blinkNode(currentNode.nodeObject,3000);
+                return update.bind(this, currentNode.leftUp, value, x, y, slow, lx, midX, ly, midY, height + 1,sketchNode.leftUp);
             }
             else {
-                await update (currentNode.leftUp, value, x, y, slow, lx, midX, ly, midY, height + 1);
+                await update (currentNode.leftUp, value, x, y, slow, lx, midX, ly, midY, height + 1,sketchNode.leftUp);
             }
         }
         else{
             if(currentNode.leftDown === null) currentNode.leftDown = new Node(currentNode);
             if (slow) {
-                return update.bind(this, currentNode.leftDown, value, x, y, slow, lx, midX, midY + 1, ry, height + 1);
+                await blinkNode(currentNode.nodeObject,3000);
+                return update.bind(this, currentNode.leftDown, value, x, y, slow, lx, midX, midY + 1, ry, height + 1,sketchNode.leftDown);
             }
             else {
-                await update(currentNode.leftDown, value, x, y, slow, lx, midX, midY + 1, ry, height + 1);
+                await update(currentNode.leftDown, value, x, y, slow, lx, midX, midY + 1, ry, height + 1,sketchNode.leftDown);
             }
         }
 
@@ -480,27 +625,29 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
         if(y <= midY){
             if(currentNode.rightUp === null) currentNode.rightUp = new Node(currentNode);
             if(slow) {
-                return update.bind(this, currentNode.rightUp, value, x, y, slow, midX + 1, rx, ly, midY, height + 1);
+                await blinkNode(currentNode.nodeObject,3000);
+                return update.bind(this, currentNode.rightUp, value, x, y, slow, midX + 1, rx, ly, midY, height + 1,sketchNode.rightUp);
             }
             else {
-                await update(currentNode.rightUp, value, x, y, slow, midX + 1, rx, ly, midY, height + 1);
+                await update(currentNode.rightUp, value, x, y, slow, midX + 1, rx, ly, midY, height + 1,sketchNode.rightUp);
             }
         }
         else {
             if(currentNode.rightDown === null) currentNode.rightDown = new Node(currentNode);
             if(slow) {
-                return update.bind(this,currentNode.rightDown, value, x, y, slow, midX + 1, rx, midY + 1, ry, height + 1);
+                await blinkNode(currentNode.nodeObject,3000);
+                return update.bind(this,currentNode.rightDown, value, x, y, slow, midX + 1, rx, midY + 1, ry, height + 1,sketchNode.rightDown);
             }
             else{
-                await update(currentNode.rightDown, value, x, y, slow, midX + 1, rx, midY + 1, ry, height + 1);
+                await update(currentNode.rightDown, value, x, y, slow, midX + 1, rx, midY + 1, ry, height + 1,sketchNode.rightDown);
             }
         }
     }
 }
 
-function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0){
-    const _side_length = _get_side_length(height) ;
-    const _height = _get_height(height);
+function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0, sketchNode = SKETCH){
+    const _side_length = _get_side_length(sketchNode,height) ;
+    const _height = _get_height(sketchNode,height);
     // console.log(currentNode,x,y);
     if(lx === rx && ly === ry) {
         leafs.pop();
@@ -526,18 +673,18 @@ function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0
     const midY = Math.floor((ly + ry) / 2);
     if(x <= midX){
         if(y <= midY) {
-            undo(currentNode.leftUp, value, x, y, lx, midX, ly, midY,height +1);
+            undo(currentNode.leftUp, value, x, y, lx, midX, ly, midY,height +1,sketchNode.leftUp);
         }
         else{
-            undo(currentNode.leftDown, value, x, y, lx, midX, midY + 1, ry,height +1);
+            undo(currentNode.leftDown, value, x, y, lx, midX, midY + 1, ry,height +1,sketchNode.leftDown);
         }
     }
     else{
         if(y <= midY){
-            undo(currentNode.rightUp, value, x, y, midX + 1, rx, ly, midY,height +1);
+            undo(currentNode.rightUp, value, x, y, midX + 1, rx, ly, midY,height +1,sketchNode.rightUp);
         }
         else {
-            undo(currentNode.rightDown, value, x, y, midX + 1, rx, midY + 1, ry,height +1);
+            undo(currentNode.rightDown, value, x, y, midX + 1, rx, midY + 1, ry,height +1,sketchNode.rightDown);
         }
     }
     currentNode.data-=value;
@@ -550,13 +697,14 @@ function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0
     }
 
     if(currentNode.leftUp !== null)
-        updatePipe(currentNode.leftUp.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"leftUp",currentNode.leftUp.parentPipeIndex);
+        updatePipe(currentNode.leftUp.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.leftUp,height + 1),_get_height(sketchNode.leftUp,height + 1),"leftUp",currentNode.leftUp.parentPipeIndex);
     if(currentNode.leftDown !== null)
-        updatePipe(currentNode.leftDown.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"leftDown",currentNode.leftDown.parentPipeIndex);
+        updatePipe(currentNode.leftDown.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.leftDown,height + 1),_get_height(sketchNode.leftDown,height + 1),"leftDown",currentNode.leftDown.parentPipeIndex);
     if(currentNode.rightUp !== null)
-        updatePipe(currentNode.rightUp.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"rightUp",currentNode.rightUp.parentPipeIndex);
+        updatePipe(currentNode.rightUp.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.rightUp,height + 1),_get_height(sketchNode.rightUp,height + 1),"rightUp",currentNode.rightUp.parentPipeIndex);
     if(currentNode.rightDown !== null)
-        updatePipe(currentNode.rightDown.nodeObject,currentNode.nodeObject,_get_side_length(_height + 1),_get_height(_height + 1),"rightDown",currentNode.rightDown.parentPipeIndex);
+        updatePipe(currentNode.rightDown.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.rightDown,height + 1),_get_height(sketchNode.rightDown,height + 1),"rightDown",currentNode.rightDown.parentPipeIndex);
+
 
     if (currentNode.leftUp === null && currentNode.leftDown === null && currentNode.rightUp === null && currentNode.rightDown === null){
         if(currentNode.parent === null){
@@ -608,10 +756,12 @@ function build(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N){
 
     }
 }
+
+
 // Draw tree
 async function drawTree(currentNode,lx = 1, rx = M, ly = 1,ry = N,height = 0){
-    const _side_length = _get_side_length(height);
-    const _height = _get_height(height);
+    const _side_length = _get_side_length(currentNode,height);
+    const _height = _get_height(currentNode,height);
     if(currentNode.parent === null){
         currentNode.nodeObject = await createNode((currentNode.data).toString(),scene,0,0,0, lx, ly, rx, ry);
     }
@@ -688,3 +838,5 @@ textLoaderPromise().then( async (font) => {
     // }
 });
 // console.log(ROOT);
+
+animate();
