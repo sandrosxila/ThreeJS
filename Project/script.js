@@ -84,6 +84,20 @@ function makeSphere(color, parent, positionX, positionY, positionZ = 0, radius =
 
     return sphere;
 }
+//declare function that creates transparent layer for sphere
+function makeTransparentSphereLayer(positionX,positionY,positionZ,radius,widthSegments = 32, heightSegments = 32){
+    const geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
+    const material = new THREE.MeshPhongMaterial({color:'red',opacity: 0.0, transparent: true, side: THREE.FrontSide});
+    const sphereTransparentLayer = new THREE.Mesh(geometry, material);
+
+    scene.add(sphereTransparentLayer);
+
+    sphereTransparentLayer.position.x = positionX;
+    sphereTransparentLayer.position.y = positionY;
+    sphereTransparentLayer.position.z = positionZ;
+
+    return sphereTransparentLayer;
+}
 // make function that creates text object
 function createText(font, text, color, fontSize, positionX, positionY, positionZ = 0) {
     const geometry = new THREE.TextBufferGeometry(text, {
@@ -371,7 +385,9 @@ backBtn.addEventListener("click",async() =>{
 buildBtn.addEventListener("click",async () => {
     // console.log(ROOT);
     if(ROOT.isEmpty===false){
-        scene.remove(ROOT.nodeObject);
+        while(scene.children.length)scene.remove(scene.children[0]);
+        addLight(-1, 2, 4);
+        addLight(1, -1, -2);
         ROOT = new Node();
         i=0;
         j=0;
@@ -388,7 +404,19 @@ buildBtn.addEventListener("click",async () => {
 // algorithm implementation
 // node class
 class Node{
-    constructor(parent = null, isEmpty = true, data = 0, leftUp = null, leftDown = null, rightUp = null, rightDown = null, nodeObject = null, parentPipeIndex = 0) {
+    constructor(parent = null,
+                isEmpty = true,
+                data = 0,
+                leftUp = null,
+                leftDown = null,
+                rightUp = null,
+                rightDown = null,
+                nodeObject = null,
+                layer = null,
+                parentPipeIndex = 0,
+                globalPositionX = 0,
+                globalPositionY = 0,
+                globalPositionZ = 0) {
         this.isEmpty = isEmpty;
         this.parent = parent;
         this.data = data;
@@ -398,6 +426,10 @@ class Node{
         this.rightDown = rightDown;
         this.nodeObject = nodeObject;
         this.parentPipeIndex = parentPipeIndex;
+        this.globalPositionX = globalPositionX;
+        this.globalPositionY = globalPositionY;
+        this.globalPositionZ = globalPositionZ;
+        this.layer = layer;
     }
 }
 // constants and variables
@@ -448,6 +480,11 @@ for (let i = 0; i < pipeRadios.length; i++) {
             Mode.pipe = pipeModes[i];
             if(ROOT.isEmpty===false){
                 scene.remove(ROOT.nodeObject);
+                while(scene.children.length !== 0){
+                    scene.remove(scene.children[0]);
+                }
+                addLight(-1, 2, 4);
+                addLight(1, -1, -2);
                 ROOT = new Node();
                 i=0;
                 j=0;
@@ -553,11 +590,26 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
         let parentNodeObject = currentNode.parent === null ? scene : currentNode.parent.nodeObject;
         let newNodeObject = await createNode((value).toString(),parentNodeObject,0,0,0, lx, ly, rx, ry);
         currentNode.nodeObject = newNodeObject;
-
-        if(currentNode.parent !== null){
-            // console.log("hey there",currentNode.parent);
-            // console.log(currentNode);
+        if(currentNode.parent === null) {
+            currentNode.globalPositionX = scene.position.x;
+            currentNode.globalPositionY = scene.position.y;
+            currentNode.globalPositionZ = scene.position.z;
+        }
+        else{
+            currentNode.globalPositionX = currentNode.parent.globalPositionX;
+            currentNode.globalPositionY = currentNode.parent.globalPositionY;
+            currentNode.globalPositionZ = currentNode.parent.globalPositionZ;
+            const DirMap = new Map([
+                ["leftUp",[-1,-1,-1]],
+                ["leftDown",[-1,-1,1]],
+                ["rightUp",[1,-1,-1]],
+                ["rightDown",[1,-1,1]]
+            ]);
             let direction = _get_direction(currentNode,currentNode.parent);
+            let DirValues = DirMap.get(direction);
+            currentNode.globalPositionX += _side_length * DirValues[0];
+            currentNode.globalPositionY += _height * DirValues[1];
+            currentNode.globalPositionZ += _side_length * DirValues[2];
             await moveNode(currentNode.nodeObject,currentNode.parent.nodeObject, _side_length , _height, direction,0.05);
             currentNode.parentPipeIndex = parentNodeObject.children.length - 1;
             // console.log(_side_length,_height);
@@ -589,6 +641,16 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
             updatePipe(currentNode.rightDown.nodeObject,currentNode.nodeObject,_get_side_length(sketchNode.rightDown,height + 1),_get_height(sketchNode.rightDown,height + 1),"rightDown",currentNode.rightDown.parentPipeIndex);
 
     }
+
+    currentNode.layer = makeTransparentSphereLayer(currentNode.globalPositionX,currentNode.globalPositionY,currentNode.globalPositionZ,currentNode.nodeObject.geometry.parameters.radius);
+    // console.log("here is layer: ",currentNode.layer);
+    // console.log("here is node:", currentNode.nodeObject);
+    currentNode.layer.cursor = "pointer";
+    currentNode.layer.on('click',() => {
+        // console.log('clicked');
+        controls.target.set(currentNode.globalPositionX,currentNode.globalPositionY,currentNode.globalPositionZ);
+        controls.update();
+    });
 
     const midX = Math.floor((lx + rx) / 2);
     const midY = Math.floor((ly + ry) / 2);
@@ -643,6 +705,15 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
             }
         }
     }
+
+}
+let positions = [];
+async function clickOnNode(node){
+
+    node.nodeObject.on('click',async ()=>{
+        await positions.push([node.globalPositionX,node.globalPositionZ,node.globalPositionZ]);
+    });
+    console.log(positions);
 }
 
 function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0, sketchNode = SKETCH){
@@ -651,6 +722,8 @@ function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0
     // console.log(currentNode,x,y);
     if(lx === rx && ly === ry) {
         leafs.pop();
+        scene.remove(currentNode.layer);
+        currentNode.layer = null;
         if(currentNode.parent === null){
             scene.remove(currentNode.nodeObject);
             ROOT = new Node();
@@ -707,6 +780,8 @@ function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0
 
 
     if (currentNode.leftUp === null && currentNode.leftDown === null && currentNode.rightUp === null && currentNode.rightDown === null){
+        scene.remove(currentNode.layer);
+        currentNode.layer = null;
         if(currentNode.parent === null){
             console.log("ehhh");
             scene.remove(currentNode.nodeObject);
@@ -764,12 +839,38 @@ async function drawTree(currentNode,lx = 1, rx = M, ly = 1,ry = N,height = 0){
     const _height = _get_height(currentNode,height);
     if(currentNode.parent === null){
         currentNode.nodeObject = await createNode((currentNode.data).toString(),scene,0,0,0, lx, ly, rx, ry);
+        currentNode.globalPositionX = scene.position.x;
+        currentNode.globalPositionY = scene.position.y;
+        currentNode.globalPositionZ = scene.position.z;
     }
     else{
-        if (currentNode === currentNode.parent.leftUp)currentNode.nodeObject = await createNode((currentNode.data).toString(), currentNode.parent.nodeObject, -_side_length, -_height, -_side_length, lx, ly, rx, ry);
-        else if (currentNode === currentNode.parent.leftDown)currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,-_side_length,-_height,_side_length,lx,ly,rx,ry);
-        else if (currentNode === currentNode.parent.rightUp)currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,_side_length,-_height,-_side_length,lx,ly,rx,ry);
-        else if (currentNode === currentNode.parent.rightDown)currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,_side_length,-_height,_side_length,lx,ly,rx,ry);
+        currentNode.globalPositionX = currentNode.parent.globalPositionX;
+        currentNode.globalPositionY = currentNode.parent.globalPositionY;
+        currentNode.globalPositionZ = currentNode.parent.globalPositionZ;
+        if (currentNode === currentNode.parent.leftUp){
+            currentNode.nodeObject = await createNode((currentNode.data).toString(), currentNode.parent.nodeObject, -_side_length, -_height, -_side_length, lx, ly, rx, ry);
+            currentNode.globalPositionX += -_side_length;
+            currentNode.globalPositionY += -_height;
+            currentNode.globalPositionZ += -_side_length;
+        }
+        else if (currentNode === currentNode.parent.leftDown){
+            currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,-_side_length,-_height,_side_length,lx,ly,rx,ry);
+            currentNode.globalPositionX += -_side_length;
+            currentNode.globalPositionY += -_height;
+            currentNode.globalPositionZ += _side_length;
+        }
+        else if (currentNode === currentNode.parent.rightUp){
+            currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,_side_length,-_height,-_side_length,lx,ly,rx,ry);
+            currentNode.globalPositionX += _side_length;
+            currentNode.globalPositionY += -_height;
+            currentNode.globalPositionZ += -_side_length;
+        }
+        else if (currentNode === currentNode.parent.rightDown){
+            currentNode.nodeObject = await createNode((currentNode.data).toString(),currentNode.parent.nodeObject,_side_length,-_height,_side_length,lx,ly,rx,ry);
+            currentNode.globalPositionX += _side_length;
+            currentNode.globalPositionY += -_height;
+            currentNode.globalPositionZ += _side_length;
+        }
         let parentRadius = currentNode.parent.nodeObject.geometry.parameters.radius;
         let childRadius = currentNode.nodeObject.geometry.parameters.radius;
 
@@ -810,6 +911,14 @@ async function drawTree(currentNode,lx = 1, rx = M, ly = 1,ry = N,height = 0){
         }
         currentNode.parentPipeIndex = currentNode.parent.nodeObject.children.length - 1;
     }
+
+    currentNode.layer = makeTransparentSphereLayer(currentNode.globalPositionX,currentNode.globalPositionY,currentNode.globalPositionZ,currentNode.nodeObject.geometry.parameters.radius);
+    currentNode.layer.cursor = "pointer";
+    currentNode.layer.on("click", () => {
+        controls.target.set(currentNode.globalPositionX,currentNode.globalPositionY,currentNode.globalPositionZ);
+        controls.update();
+    });
+
     const midX = Math.floor((lx + rx) / 2);
     const midY = Math.floor((ly + ry) / 2);
     if(currentNode.leftUp !== null){
