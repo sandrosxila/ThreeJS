@@ -137,11 +137,11 @@ async function createNode (text,parent,positionX,positionY,positionZ = 0,lx,ly,r
     let rangeFontSize = 0.3;
     await makeText(text, node, color, textFontSize, -(0.1875 * text.length), -0.25, 0);
     if(lx === rx && ly === ry){
-        let rangeText = "("+(lx).toString() + "," + (ly).toString()+")";
+        let rangeText = "("+(ly).toString() + "," + (lx).toString()+")";
         await makeText(rangeText,node, color,0.3,-0.12 * rangeFontSize/textFontSize * rangeText.length,-node.geometry.parameters.radius - 0.5);
     }
     else{
-        let rangeText = "[("+(lx).toString()+","+(ly).toString()+")-("+(rx).toString()+","+(ry).toString()+")]";
+        let rangeText = "[("+(ly).toString()+","+(lx).toString()+")-("+(ry).toString()+","+(rx).toString()+")]";
         await makeText(rangeText,node, color,0.3,-0.12 * rangeFontSize/textFontSize * rangeText.length,node.geometry.parameters.radius + 0.5);
     }
     return node;
@@ -315,6 +315,7 @@ const addFastBtn = document.getElementById("add-fast");
 const addAllBtn = document.getElementById("add-all");
 const backBtn = document.getElementById("back");
 const buildBtn = document.getElementById("build");
+const answerBtn = document.getElementById("answer");
 function addSlow(i,j,N,M,timeDelay){
             if (i < N) {
                 if (j < M) {
@@ -401,6 +402,22 @@ buildBtn.addEventListener("click",async () => {
 
 });
 
+let cleanUpTree;
+answerBtn.addEventListener('click', async () => {
+    console.log(cleanUpTree);
+    if(cleanUpTree !== undefined){
+        cleanUpTree();
+    }
+    let startX = parseInt(document.getElementById('fieldFromJ').value);
+    let startY = parseInt(document.getElementById('fieldFromI').value);
+    let endX = parseInt(document.getElementById('fieldToJ').value);
+    let endY = parseInt(document.getElementById('fieldToI').value);
+    //2,5,3,6
+    console.log(ROOT,startX,startY,endX,endY);
+    document.getElementById('result').value = (answer(ROOT,startX,endX,startY,endY)).toString();
+    cleanUpTree = clearAnswer.bind(this,ROOT,startX,endX,startY,endY);
+});
+
 // algorithm implementation
 // node class
 class Node{
@@ -446,6 +463,7 @@ const A = [
     [3,3,5,12,3,8,1,3,3,5,4,3],
     [5,5,6,2,3,7,2,3,2,6,2,1]
 ];
+visualiseArray(N,M);
 //2 - 2.1
 //3 - 2.25
 //4 - 2.4
@@ -949,3 +967,41 @@ textLoaderPromise().then( async (font) => {
 // console.log(ROOT);
 
 animate();
+
+function answer(currentNode, startX, endX, startY, endY, lx = 1, rx = M, ly = 1, ry = N) {
+    if (currentNode === null) return 0;
+    if ((rx < startX || endX < lx) || (ry < startY || endY < ly)) return 0;
+    if ((startX <= lx && rx <= endX) && (startY <= ly && ry <= endY)) {
+        currentNode.nodeObject.material.color.setHSL(0,1,0.5);
+        currentNode.nodeObject.material.opacity = 0.7;
+        return currentNode.data;
+    }
+
+    const midX = Math.floor((lx + rx) / 2);
+    const midY = Math.floor((ly + ry) / 2);
+
+    let leftUpNode = answer(currentNode.leftUp, startX, endX, startY, endY, lx, midX, ly, midY);
+    let leftDownNode = answer(currentNode.leftDown, startX, endX, startY, endY, lx, midX, midY + 1, ry);
+    let rightUpNode = answer(currentNode.rightUp, startX, endX, startY, endY, midX + 1, rx, ly, midY) ;
+    let rightDownNode = answer(currentNode.rightDown, startX, endX, startY, endY, midX + 1, rx, midY + 1, ry);
+
+    return leftUpNode + leftDownNode + rightUpNode + rightDownNode;
+}
+
+function clearAnswer(currentNode, startX, endX, startY, endY, lx = 1, rx = M, ly = 1, ry = N) {
+    if (currentNode === null) return;
+    if ((rx < startX || endX < lx) || (ry < startY || endY < ly)) return;
+    if ((startX <= lx && rx <= endX) && (startY <= ly && ry <= endY)) {
+        currentNode.nodeObject.material.color.setHex(0x157d6c);
+        currentNode.nodeObject.material.opacity = 0.2;
+        return;
+    }
+
+    const midX = Math.floor((lx + rx) / 2);
+    const midY = Math.floor((ly + ry) / 2);
+
+    clearAnswer(currentNode.leftUp, startX, endX, startY, endY, lx, midX, ly, midY);
+    clearAnswer(currentNode.leftDown, startX, endX, startY, endY, lx, midX, midY + 1, ry);
+    clearAnswer(currentNode.rightUp, startX, endX, startY, endY, midX + 1, rx, ly, midY) ;
+    clearAnswer(currentNode.rightDown, startX, endX, startY, endY, midX + 1, rx, midY + 1, ry);
+}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>2D Segment Tree Visualization</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" href="./lib/bootstrap.min.css">
     <style>
         body {
             margin: 0;
@@ -22,23 +22,125 @@
             padding: 1px;
         }
 
-        input[type="button"] {
+        #buildActions , #getAnswer{
             margin-right: 3px;
         }
 
         #nav-bar{
             background-color: #f8f8f8;
         }
+        .cell{
+            border: 1px solid black;
+            width:12px;
+            height:12px;
+            margin: 2px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
 <header>
     <div class="navbar navbar-expand-md navbar-dark fixed-top" id="nav-bar">
-        <input type="button" value="add slowly" id="add-slow" class="btn btn-outline-info">
-        <input type="button" value="add fast" id="add-fast" class="btn btn-outline-info">
-        <input type="button" value="back" id="back" class="btn btn-outline-info">
-        <input type="button" value="add all" id="add-all" class="btn btn-outline-info">
-        <input type="button" value="build" id="build" class="btn btn-outline-info">
+
+<!--        Build Actions Dropdown-->
+        <div class="btn-group keep-open" id="buildActions">
+            <button type="button" class="btn btn-info dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Build actions
+            </button>
+            <div class="dropdown-menu">
+                <input type="button" value="add slowly" id="add-slow" class="btn btn-outline-info dropdown-item">
+                <input type="button" value="add fast" id="add-fast" class="btn btn-outline-info dropdown-item">
+                <div class="dropdown-divider"></div>
+                <input type="button" value="back" id="back" class="btn btn-outline-info dropdown-item">
+                <div class="dropdown-divider"></div>
+                <input type="button" value="add all" id="add-all" class="btn btn-outline-info dropdown-item">
+                <input type="button" value="build" id="build" class="btn btn-outline-info dropdown-item">
+            </div>
+        </div>
+
+<!--        Action Dropdown-->
+        <div class="btn-group w-25 keep-open" id="getAnswer">
+<!--            Dropdown Button-->
+            <button type="button" class="btn btn-danger dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Action
+            </button>
+<!--            Dropdown Menu-->
+            <div class="dropdown-menu keep-open">
+<!--                Title-->
+                <div class="container"> Get Answer From Range </div>
+                <div class="dropdown-divider"></div>
+<!--                Range-->
+<!--                From-->
+                <div class="container">
+                    <div class="input-group input-group-sm mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-dark text-light">From</span>
+                            <span class="input-group-text" id="fromI">I</span>
+                        </div>
+                        <input type="text" id="fieldFromI" class="form-control mr-2" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-sm">
+
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="fromJ">J</span>
+                        </div>
+                        <input type="text" id="fieldFromJ" class="form-control mr-2" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-sm">
+
+                    </div>
+                </div>
+<!--                To-->
+                <div class="container">
+                    <div class="input-group input-group-sm mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-dark text-light">To</span>
+                            <span class="input-group-text" id="toI">I</span>
+                        </div>
+                        <input type="text" id = "fieldToI" class="form-control mr-2" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-sm">
+
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="toJ">J</span>
+                        </div>
+                        <input type="text" id = "fieldToJ" class="form-control mr-2" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-sm">
+
+                    </div>
+                </div>
+                <div id ="cells">
+<!--                    <div class="container" style="flex-wrap: nowrap;justify-content: left;">-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                    </div>-->
+<!--                    <div class="container" style="flex-wrap: nowrap;justify-content: left;">-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                        <div class="cell"></div>-->
+<!--                    </div>-->
+                </div>
+                <div class="dropdown-divider"></div>
+<!--                Result-->
+                <div class="container">
+                    <div class="input-group input-group-sm mb-3">
+
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" >Result</span>
+                        </div>
+
+                        <input type="text" id="result" class="form-control mr-2" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-sm" disabled>
+
+                    </div>
+                </div>
+<!--                Answer Button-->
+                <div class="container">
+                    <input type="button" class="btn btn-success" value="Get Answer" id="answer" data-toggle="dropdown">
+                </div>
+            </div>
+        </div>
+
+
         <form name="pipeMode">
             Pipe Mode:
             <input type="radio" name="pipeRadio" id="Proportional" value="Proportional" checked>
@@ -48,17 +150,25 @@
             <input type="radio" name="pipeRadio" id="Average" value="Average">
             <label for="Average">Average</label>
         </form>
+
+
+
+
     </div>
 </header>
-<!--<script src="https://cdn.rawgit.com/mrdoob/three.js/master/build/three.js"></script>-->
-<!--<script src="https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/controls/OrbitControls.js"></script>-->
-<!--<script src="./js/three.js" type = "text/javascript"></script>-->
-<!--<script src="./js/OrbitControls.js" type = "text/javascript"></script>-->
 
+<!--Web-Page Arrangement-->
+<script src="./lib/jquery-3.4.1.slim.min.js"></script>
+<script src="./lib/popper.min.js"></script>
+<script src="./lib/bootstrap.min.js"></script>
+<script src="DomScript.js" type="text/javascript"></script>
+
+<!--Three JS Libraries-->
 <script  type="text/javascript" src="lib/three.js"></script>
 <script type="text/javascript" src="lib/OrbitControls.js"></script>
 <script type="text/javascript" src="lib/three.interaction.js"></script>
+<!--Three JS Script-->
 <script src="script.js" type = "text/javascript"></script>
-<!--<script src="script.js" ></script>-->
+
 </body>
 </html>
