@@ -1,7 +1,7 @@
 const {OrbitControls,Interaction} = THREE;
 
 // initial setup
-console.log(Interaction);
+// console.log(Interaction);
 // set scene
 let scene = new THREE.Scene();
 // make scene background color white
@@ -231,7 +231,7 @@ async function animateNode(node,finalX,finalY,finalZ,rate = 0.1){
         requestAnimationFrame(animateNode.bind(this,node,finalX,finalY,finalZ,rate));
 }
 async function blinkNode(node,duration,startTime = new Date().getTime()){
-    console.log(node);
+    // console.log(node);
     if (node.material.color.getHex() === 0x157d6c ){
 
         node.material.color.setHSL(0,1,0.5);
@@ -310,6 +310,10 @@ async function moveNode(child,parent,sideLength,height,direction,rate){
 }
 let sphere;
 let pipe,line,parent;
+const buildActionsButton = document.getElementById("buildActionsButton");
+buildActionsButton.disabled=true;
+const queryActionsButton = document.getElementById("queryActionsButton");
+queryActionsButton.disabled=true;
 const addSlowBtn = document.getElementById("add-slow");
 const addFastBtn = document.getElementById("add-fast");
 const addAllBtn = document.getElementById("add-all");
@@ -361,7 +365,7 @@ addFastBtn.addEventListener("click", async() => {
             i++;
             j = 0;
         }
-        console.log(ROOT.nodeObject);
+        // console.log(ROOT.nodeObject);
     }
 });
 addAllBtn.addEventListener("click",async () => {
@@ -373,7 +377,7 @@ addAllBtn.addEventListener("click",async () => {
     }
 });
 backBtn.addEventListener("click",async() =>{
-    console.log(leafs);
+    // console.log(leafs);
     if(leafs.length !== 0){
         j--;
         if(j<0){
@@ -395,6 +399,7 @@ buildBtn.addEventListener("click",async () => {
     }
     for(let i = 0; i < N; i++){
         for(let j = 0; j < M; j++){
+            // console.log(A[i][j]);
             build(ROOT, A[i][j], j + 1, i + 1);
         }
     }
@@ -404,7 +409,7 @@ buildBtn.addEventListener("click",async () => {
 
 let cleanUpTree;
 answerBtn.addEventListener('click', async () => {
-    console.log(cleanUpTree);
+    // console.log(cleanUpTree);
     if(cleanUpTree !== undefined){
         cleanUpTree();
     }
@@ -413,7 +418,7 @@ answerBtn.addEventListener('click', async () => {
     let endX = parseInt(document.getElementById('fieldToJ').value);
     let endY = parseInt(document.getElementById('fieldToI').value);
     //2,5,3,6
-    console.log(ROOT,startX,startY,endX,endY);
+    // console.log(ROOT,startX,startY,endX,endY);
     document.getElementById('result').value = (answer(ROOT,startX,endX,startY,endY)).toString();
     cleanUpTree = clearAnswer.bind(this,ROOT,startX,endX,startY,endY);
 });
@@ -449,21 +454,64 @@ class Node{
         this.layer = layer;
     }
 }
+let inputContent ;
+document.getElementById('fileUploadInput').addEventListener('change', (event) => {
+        const input = event.target
+        if ('files' in input && input.files.length > 0) {
+            placeFileContent(
+                inputContent,
+                input.files[0])
+        }
+});
+function placeFileContent(target, file) {
+    readFileContent(file).then(content => {
+        content = JSON.parse(JSON.stringify(content).split('\\r\\n').join(' '));
+        const input = content.split(' ');
+        // console.log(input);
+        N = parseInt(input[0]);
+        M = parseInt(input[1]);
+        // console.log(N,M);
+        let index = 2;
+        for(let i = 0; i < N; i++){
+            let arr = []
+            for(let j=0; j < M; j++){
+                arr.push(parseInt(input[index]));
+                index++;
+            }
+            // console.log(arr);
+            A.push(arr);
+        }
+        // console.log(A);
+        visualiseArray(N,M);
+        buildActionsButton.disabled=false;
+        queryActionsButton.disabled=false;
+        totalHeight = Math.ceil(Math.log(N * M) / Math.log(2)) + 1 ;
+        maxLength = 0;
+        for(let i = 0; i < N; i++){
+            for(let j = 0; j < M; j++){
+                build(SKETCH, A[i][j], j + 1, i + 1);
+                maxLength = Math.max(maxLength,(A[i][j]).toString().length);
+            }
+        }
+    }).catch(error => console.log(error))
+}
 // constants and variables
-const N = 9;
-const M = 12;
-const A = [
-    [1,2,3,4,5,6,7,8,9,10,11,12],
-    [1,2,3,4,5,6,7,8,9,10,11,12],
-    [1,3,4,5,7,6,1,2,8,3,9,1],
-    [8,8,1,3,3,7,1,4,6,1,3,5],
-    [4,4,2,3,4,8,1,4,5,1,4,5],
-    [2,2,3,7,9,9,1,4,4,3,5,4],
-    [1,1,4,9,12,9,1,4,3,4,6,4],
-    [3,3,5,12,3,8,1,3,3,5,4,3],
-    [5,5,6,2,3,7,2,3,2,6,2,1]
-];
-visualiseArray(N,M);
+let N;
+let M;
+let A = [];
+// let N = 9;
+// let M = 12;
+// let A = [
+//     [1,2,3,4,5,6,7,8,9,10,11,12],
+//     [1,2,3,4,5,6,7,8,9,10,11,12],
+//     [1,3,4,5,7,6,1,2,8,3,9,1],
+//     [8,8,1,3,3,7,1,4,6,1,3,5],
+//     [4,4,2,3,4,8,1,4,5,1,4,5],
+//     [2,2,3,7,9,9,1,4,4,3,5,4],
+//     [1,1,4,9,12,9,1,4,3,4,6,4],
+//     [3,3,5,12,3,8,1,3,3,5,4,3],
+//     [5,5,6,2,3,7,2,3,2,6,2,1]
+// ];
 //2 - 2.1
 //3 - 2.25
 //4 - 2.4
@@ -473,16 +521,11 @@ visualiseArray(N,M);
 //8 - 2.8
 //9 - 2.9
 //10 - 3
-let totalHeight = Math.ceil(Math.log(N * M) / Math.log(2)) + 1 ;
+let totalHeight;
 let ROOT = new Node();
 let SKETCH = new Node();
-let maxLength = 0;
-for(let i = 0; i < N; i++){
-    for(let j = 0; j < M; j++){
-        build(SKETCH, A[i][j], j + 1, i + 1);
-        maxLength = Math.max(maxLength,(A[i][j]).toString().length);
-    }
-}
+let maxLength;
+
 const pipeModes = ['Proportional','Relative','Average'];
 const nodeModes = ['Flexible','Fixed'];
 const Mode = {
@@ -637,7 +680,7 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
         currentNode.data += value;
         const _side_length = _get_side_length(sketchNode,height) ;
         const _height = _get_height(sketchNode,height);
-        console.log(_side_length,_height);
+        // console.log(_side_length,_height);
         if(currentNode.parent !== null) {
             let direction = _get_direction(currentNode,currentNode.parent);
             updateNode((currentNode.data).toString(), currentNode.nodeObject, currentNode.parent.nodeObject, _side_length,_height, direction,currentNode.parentPipeIndex,lx,ly,rx,ry);
@@ -725,15 +768,8 @@ async function update (currentNode, value, x, y, slow = false ,lx = 1, rx = M, l
     }
 
 }
-let positions = [];
-async function clickOnNode(node){
 
-    node.nodeObject.on('click',async ()=>{
-        await positions.push([node.globalPositionX,node.globalPositionZ,node.globalPositionZ]);
-    });
-    console.log(positions);
-}
-
+//one step back function
 function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0, sketchNode = SKETCH){
     const _side_length = _get_side_length(sketchNode,height) ;
     const _height = _get_height(sketchNode,height);
@@ -801,7 +837,6 @@ function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0
         scene.remove(currentNode.layer);
         currentNode.layer = null;
         if(currentNode.parent === null){
-            console.log("ehhh");
             scene.remove(currentNode.nodeObject);
             ROOT = new Node();
         }
@@ -819,6 +854,7 @@ function undo(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N, height = 0
         }
     }
 }
+
 //build whole tree without animation
 function build(currentNode, value, x, y,lx = 1, rx = M, ly = 1,ry = N){
     if (currentNode.isEmpty === true)
@@ -956,13 +992,6 @@ async function drawTree(currentNode,lx = 1, rx = M, ly = 1,ry = N,height = 0){
 // load font asynchronously
 textLoaderPromise().then( async (font) => {
     textFont = font;
-    // for(let i = 0; i < N; i++){
-    //     for(let j = 0; j < M; j++){
-    //         await update(ROOT, A[i][j], j + 1, i + 1);
-    //         // if (j === 2) break;
-    //     }
-    //     // break;
-    // }
 });
 // console.log(ROOT);
 

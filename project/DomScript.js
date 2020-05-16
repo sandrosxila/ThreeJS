@@ -1,23 +1,21 @@
-$('.keep-open').on({
-    "shown.bs.dropdown": function() { this.closable = false; },
-    "click":             function() { this.closable = true; },
-    "hide.bs.dropdown":  function() { return this.closable; }
-});
-
-$('.keep-open > .dropdown-toggle').on('click', function(event) {
-    $('.keep-open >.dropdown-menu').slideToggle();
-    event.stopPropagation();
+$(document).on('click', '.keep-open .dropdown-menu', function (e) {
+    e.stopPropagation();
 });
 
 
 
-$('.keep-open > .dropdown-menu').on('click', function(event) {
-    event.stopPropagation();
-});
 
-// $(window).on('click', function() {
-//     $('.keep-open > .dropdown-menu').slideUp();
-// });
+function readFileContent(file) {
+    const reader = new FileReader()
+    return new Promise((resolve, reject) => {
+        reader.onload = event => resolve(event.target.result)
+        reader.onerror = error => reject(error)
+        reader.readAsText(file)
+    })
+}
+
+
+
 
 let startI,startJ,finalI,finalJ,clickedOnCell=false;
 

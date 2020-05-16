@@ -36,6 +36,20 @@
             margin: 2px;
             display: inline-block;
         }
+        #fileUploadDiv {
+            position: relative;
+            overflow: hidden;
+        }
+        #fileUploadInput {
+            position: absolute;
+            font-size: 50px;
+            opacity: 0;
+            right: 0;
+            top: 0;
+        }
+        #contentTarget{
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -44,8 +58,8 @@
 
 <!--        Build Actions Dropdown-->
         <div class="btn-group keep-open" id="buildActions">
-            <button type="button" class="btn btn-info dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Build actions
+            <button type="button" id="buildActionsButton" class="btn btn-info dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Build Actions
             </button>
             <div class="dropdown-menu">
                 <input type="button" value="add slowly" id="add-slow" class="btn btn-outline-info dropdown-item">
@@ -61,8 +75,8 @@
 <!--        Action Dropdown-->
         <div class="btn-group w-25 keep-open" id="getAnswer">
 <!--            Dropdown Button-->
-            <button type="button" class="btn btn-danger dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Action
+            <button type="button" id="queryActionsButton" class="btn btn-danger dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Query Actions
             </button>
 <!--            Dropdown Menu-->
             <div class="dropdown-menu keep-open">
@@ -151,8 +165,13 @@
             <label for="Average">Average</label>
         </form>
 
-
-
+        <form name="fileRead" class="ml-1">
+            <div id="fileUploadDiv" class="file btn btn-primary">
+                Upload
+                <input id="fileUploadInput" type="file" name="file"/>
+            </div>
+        </form>
+        <textarea id="contentTarget"></textarea>
 
     </div>
 </header>
