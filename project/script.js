@@ -1,5 +1,6 @@
 const {OrbitControls,Interaction} = THREE;
 
+
 // initial setup
 // console.log(Interaction);
 // set scene
@@ -15,7 +16,7 @@ let camera = new THREE.PerspectiveCamera(
 );
 camera.position.z = 26;
 // create renderer
-let renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 // declare HSL function
@@ -56,6 +57,7 @@ function textLoaderPromise(){
         });
     });
 }
+
 
 // object functions
 
@@ -467,11 +469,23 @@ function placeFileContent(target, file) {
     readFileContent(file).then(content => {
         content = JSON.parse(JSON.stringify(content).split('\\r\\n').join(' '));
         const input = content.split(' ');
+        if(ROOT.isEmpty===false){
+            scene.remove(ROOT.nodeObject);
+            while(scene.children.length !== 0){
+                scene.remove(scene.children[0]);
+            }
+            addLight(-1, 2, 4);
+            addLight(1, -1, -2);
+            ROOT = new Node();
+            i=0;
+            j=0;
+        }
         // console.log(input);
         N = parseInt(input[0]);
         M = parseInt(input[1]);
         // console.log(N,M);
         let index = 2;
+        A=[];
         for(let i = 0; i < N; i++){
             let arr = []
             for(let j=0; j < M; j++){
@@ -487,6 +501,7 @@ function placeFileContent(target, file) {
         queryActionsButton.disabled=false;
         totalHeight = Math.ceil(Math.log(N * M) / Math.log(2)) + 1 ;
         maxLength = 0;
+        SKETCH = new Node();
         for(let i = 0; i < N; i++){
             for(let j = 0; j < M; j++){
                 build(SKETCH, A[i][j], j + 1, i + 1);

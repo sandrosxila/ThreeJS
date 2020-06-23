@@ -36,6 +36,7 @@ function visualiseArray(height,width){
             cellDiv.addEventListener('click',() => {
                 if(clickedOnCell){
                     clickedOnCell = false;
+
                     document.getElementById('fieldFromI').value = startI;
                     document.getElementById('fieldFromJ').value = startJ;
                     document.getElementById('fieldToI').value= i;
@@ -43,12 +44,17 @@ function visualiseArray(height,width){
                 }
                 else {
                     if(finalI!==-1 && finalJ !== -1){
+                        console.log('hey!!!');
                         for(let I = Math.min(startI,finalI); I <= Math.max(startI,finalI); I++){
                             for(let J = Math.min(startJ,finalJ); J <= Math.max(startJ,finalJ); J++){
                                 let c = document.getElementById((I).toString() + '-' + (J).toString());
                                 c.style.backgroundColor = 'white';
                             }
                         }
+                    }
+                    if(finalI === -1 && finalJ === -1){
+                        let c = document.getElementById((startI).toString() + '-' + (startJ).toString());
+                        c.style.backgroundColor = 'white';
                     }
                     cellDiv.style.backgroundColor = 'black';
                     startI = i;
